@@ -39,24 +39,17 @@ def tex_escape(text):
 def handle_author(author):
     # yeah - for some reason, b:Author has a sub-node called b:Author
     author_list = []
-
     real_author = author.find('b:Author', wordns)
-    print(real_author)
-
     for entry in real_author:
-        print('\t' + entry.tag)
         if entry.tag.endswith('Corporate'):
             author_list.append(entry.text)
         elif entry.tag.endswith('NameList'):
             for person in entry.findall('b:Person', wordns):
-                print('\t\t' + person.tag)
                 firstname_node = person.find('b:First', wordns)
                 lastname_node = person.find('b:Last', wordns)
-
                 firstname = firstname_node.text if firstname_node is not None else ''
                 lastname = lastname_node.text if lastname_node is not None else ''
                 author_list.append(firstname + " " + lastname)
-
     return " and ".join(author_list)
 
 def handle_site(source):
