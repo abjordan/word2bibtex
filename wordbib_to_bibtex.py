@@ -6,14 +6,77 @@
 
 import argparse
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
 
 wordns = { 'b': 'http://schemas.openxmlformats.org/officeDocument/2006/bibliography' }
 
+def tex_escape(text):
+    """
+        :param text: a plain text message
+        :return: the message escaped to appear correctly in LaTeX
+        Copied from https://stackoverflow.com/a/25875504/3699
+    """
+    conv = {
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\^{}',
+        '\\': r'\textbackslash{}',
+        '<': r'\textless ',
+        '>': r'\textgreater ',
+    }
+    regex = re.compile('|'.join(re.escape(key) for key in sorted(conv.keys(), key = lambda item: - len(item))))
+    return regex.sub(lambda match: conv[match.group()], text)
+
+def handle_author(author):
+    # yeah - for some reason, b:Author has a sub-node called b:Author
+    author_list = []
+
+    real_author = author.find('b:Author', wordns)
+    print(real_author)
+
+    for entry in real_author:
+        print('\t' + entry.tag)
+        if entry.tag.endswith('Corporate'):
+            author_list.append(entry.text)
+        elif entry.tag.endswith('NameList'):
+            for person in entry.findall('b:Person', wordns):
+                print('\t\t' + person.tag)
+                firstname_node = person.find('b:First', wordns)
+                lastname_node = person.find('b:Last', wordns)
+
+                firstname = firstname_node.text if firstname_node is not None else ''
+                lastname = lastname_node.text if lastname_node is not None else ''
+                author_list.append(firstname + " " + lastname)
+
+    return " and ".join(author_list)
+
 def handle_site(source):
-    return None
+    template = \
+'''
+@misc{%s,
+    author = {%s},
+    title = {%s},
+    howpublished = {Available at \\url{%s} (%s)}   
+}'''
+    tag = source.find('b:Tag', wordns).text
+    author = handle_author(source.find('b:Author', wordns))
+    title = source.find('b:Title', wordns).text
+    url = tex_escape(source.find('b:URL', wordns).text)
+    year_accessed = source.find('b:YearAccessed', wordns).text
+    month_accessed = source.find('b:MonthAccessed', wordns).text
+    day_accessed = source.find('b:DayAccessed', wordns).text
+    date_accessed = year_accessed + "/" + month_accessed + "/" + day_accessed
+
+    return template % (tag, author, title, url, date_accessed)
 
 def handle_journalarticle(source):
     return None
@@ -45,9 +108,9 @@ def process_file(infile, outfile):
                 print("Don't understand how to process source type {}".format(source_type))
 
             if entry is not None:
-                print(entry)
+                outfile.write(entry)
             else:
-                sys.stderr.write('Could not process entry with title "{}"\n'.format(source.find('b:Title', wordns).text))
+                sys.stderr.write('Could not process entry with title "{}" ({})\n'.format(source.find('b:Title', wordns).text, source_type))
 
 if __name__ == '__main__':
 
