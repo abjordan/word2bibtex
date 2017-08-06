@@ -72,13 +72,71 @@ def handle_site(source):
     return template % (tag, author, title, url, date_accessed)
 
 def handle_journalarticle(source):
-    return None
+    template = \
+'''
+@article{%s,
+    author = {%s},
+    title = {%s},
+    journal = {%s},
+    year = {%s}
+}
+'''
+    tag = source.find('b:Tag', wordns).text
+    author = handle_author(source.find('b:Author', wordns))
+    title = source.find('b:Title', wordns).text
+    journal = source.find('b:JournalName', wordns).text
+    year = source.find('b:Year', wordns).text
+
+    return template % (tag, author, title, journal, year)
 
 def handle_report(source):
-    return None
+    template = \
+'''
+@techreport{%s,
+    author = {%s},
+    title = {%s},
+    year = {%s}
+}
+'''
+    tag = source.find('b:Tag', wordns).text
+    author = handle_author(source.find('b:Author', wordns))
+    title = source.find('b:Title', wordns).text
+    year = source.find('b:Year', wordns).text
+
+    return template % (tag, author, title, year)
 
 def handle_conferenceproceedings(source):
-    return None
+    template_w_addr = \
+'''
+@inproceedings{%s,
+    author = {%s},
+    title = {%s},
+    year = {%s},
+    booktitle = {%s},
+    address = {%s}
+}
+'''
+    template_no_addr = \
+'''
+@inproceedings{%s,
+    author = {%s},
+    title = {%s},
+    year = {%s},
+    booktitle = {%s}
+}
+'''
+    tag = source.find('b:Tag', wordns).text
+    author = handle_author(source.find('b:Author', wordns))
+    title = source.find('b:Title', wordns).text
+    year = source.find('b:Year', wordns).text
+    booktitle = source.find('b:ConferenceName', wordns).text
+    
+    address_node = source.find('b:City', wordns)
+    if address_node is None:
+        return template_no_addr % (tag, author, title, year, booktitle)
+    else:
+        address = address_node.text
+        return template_w_addr % (tag, author, title, year, booktitle, address)
 
 def process_file(infile, outfile):
     with zipfile.ZipFile(infile, 'r') as wordfile:
@@ -112,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', dest='outfile', metavar='OUTFILE', default='<STDOUT>', help='Output file. Default is stdout.')
     args = parser.parse_args()
 
-    sys.stderr.write('Extracting "{}" to {}'.format(args.infile, args.outfile))
+    sys.stderr.write('Extracting "{}" to {}\n'.format(args.infile, args.outfile))
 
     outfile = sys.stdout
     if args.outfile != '<STDOUT>':
